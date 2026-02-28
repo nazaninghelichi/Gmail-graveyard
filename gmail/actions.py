@@ -295,10 +295,8 @@ def run_unsubscribe_only(service, config, dry_run=True):
 
     # --- Let user pick which senders to unsubscribe from ---
     if items:
-        console.print("[dim]  Space = select/deselect   ↑↓ = navigate   Enter = confirm[/]\n")
+        console.print("[dim]  All selected by default — Space = deselect   ↑↓ = navigate   Enter = confirm[/]\n")
         choices = [
-            questionary.Choice(title="── Select all ──", value=-1),
-        ] + [
             questionary.Choice(
                 title=(
                     f"[JOB ALERT] {(sender or '—')[:45]}"
@@ -306,20 +304,18 @@ def run_unsubscribe_only(service, config, dry_run=True):
                     else f"{(sender or '—')[:55]}"
                 ),
                 value=i,
+                checked=True,
             )
             for i, (sender, subject, links) in enumerate(items)
         ]
         selected_indices = questionary.checkbox(
-            f"Select newsletters to unsubscribe from ({len(items)} available):",
+            f"Unsubscribe from ({len(items)} selected — uncheck any to skip):",
             choices=choices,
         ).ask()
 
         if selected_indices is None:
             console.print("[bold red]Aborted.[/]")
             return
-
-        if -1 in selected_indices:
-            selected_indices = list(range(len(items)))
 
         if selected_indices:
             import time
