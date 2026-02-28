@@ -40,6 +40,45 @@ def get_header(headers, name):
     return ""
 
 
+_JOB_EMAIL_KEYWORDS = [
+    # Recruiter outreach
+    "recruiter", "recruiting", "talent acquisition", "i came across your profile",
+    "your background", "your experience", "reach out",
+    # Opportunities
+    "job offer", "job opportunity", "new opportunity", "exciting opportunity",
+    "open position", "open role", "we are hiring", "we're hiring", "join our team",
+    "we'd like to offer", "offer letter",
+    # Interviews & process
+    "interview", "phone screen", "technical screen", "coding challenge",
+    "take-home", "onsite", "virtual interview", "next steps",
+    "your application", "application received", "application status",
+    "applied for", "thank you for applying",
+    # Compensation
+    "salary", "compensation", "equity", "stock options", "benefits package",
+    # Job alerts from platforms
+    "job alert", "jobs matching", "jobs for you", "new jobs",
+    "career opportunity", "career alert",
+]
+
+_JOB_EMAIL_SENDERS = [
+    "linkedin", "indeed", "glassdoor", "ziprecruiter", "monster",
+    "talent.com", "workopolis", "simplyhired", "careerbuilder",
+    "lever.co", "greenhouse.io", "workday", "ashby", "rippling",
+    "jobvite", "smartrecruiters", "icims", "taleo", "wellfound",
+]
+
+
+def is_job_email(headers) -> bool:
+    """Return True if the email looks job/career related."""
+    subject = get_header(headers, "Subject").lower()
+    sender = get_header(headers, "From").lower()
+    combined = subject + " " + sender
+    return (
+        any(k in combined for k in _JOB_EMAIL_KEYWORDS)
+        or any(s in combined for s in _JOB_EMAIL_SENDERS)
+    )
+
+
 def is_newsletter(headers):
     return bool(get_header(headers, "List-Unsubscribe"))
 

@@ -4,7 +4,7 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TaskProgressColumn
 from rich.table import Table
 
-from gmail.analyzer import get_header, get_age_days, is_newsletter, is_priority, categorize
+from gmail.analyzer import get_header, get_age_days, is_job_email, is_newsletter, is_priority, categorize
 from gmail.client import list_messages, get_message_metadata, trash_message, modify_labels, get_or_create_label
 from gmail.duplicates import find_duplicates
 from gmail.state import load_reviewed, mark_reviewed
@@ -543,3 +543,105 @@ def run_browse_and_delete(service, config):
         for msg_id in to_delete:
             trash_message(service, msg_id)
         console.print(f"[bold green]Deleted {len(to_delete)} emails.[/]")
+
+
+def run_job_emails(service, config):
+    """Find all job-related emails in the inbox and let the user act on them."""
+    console.print("\n[bold cyan]Scanning for job-related emails...[/]\n")
+    all_msgs = list_messages(service, query="in:inbox", max_results=500)
+    msgs_with_headers = _fetch_with_headers(service, all_msgs)
+
+    job_items = []  # (msg_id, sender, subject, age_days)
+    for msg_id, headers in msgs_with_headers:
+        if is_job_email(headers):
+            sender = get_header(headers, "From") or "—"
+            subject = get_header(headers, "Subject") or "(no subject)"
+            age = get_age_days(headers)
+            display_sender = sender.split("<")[0].strip() or sender
+            job_items.append((msg_id, display_sender, subject, age))
+
+    if not job_items:
+        console.print("  [bold green]No job-related emails found.[/]")
+        return
+
+    # Sort newest first
+    job_items.sort(key=lambda x: x[3])
+
+    # Display summary table
+    table = Table(
+        title=f"[bold magenta]Job-related emails ({len(job_items)} found)[/]",
+        show_header=True,
+        header_style="bold magenta",
+        show_lines=True,
+    )
+    table.add_column("Age", style="dim", width=10)
+    table.add_column("From", style="white", max_width=30)
+    table.add_column("Subject", style="bold", max_width=55)
+
+    for _, sender, subject, age in job_items:
+        if age == 0:
+            age_str = "today"
+        elif age == 1:
+            age_str = "yesterday"
+        else:
+            age_str = f"{age}d ago"
+        table.add_row(age_str, sender[:30], subject[:55])
+
+    console.print(table)
+    console.print()
+
+    # Let user choose what to do
+    action = questionary.select(
+        f"What do you want to do with these {len(job_items)} emails?",
+        choices=[
+            "Star all  (mark as important, never auto-deleted)",
+            "Label all as 'Jobs'",
+            "Pick individually  (choose per email)",
+            "Nothing  (just wanted to see them)",
+        ],
+    ).ask()
+
+    if action is None or "Nothing" in action:
+        return
+
+    if "Star all" in action:
+        for msg_id, _, _, _ in job_items:
+            modify_labels(service, msg_id, add_labels=["STARRED"])
+        console.print(f"[bold green]Starred {len(job_items)} emails.[/]")
+
+    elif "Label all" in action:
+        _apply_labels(service, [(msg_id, "Jobs") for msg_id, _, _, _ in job_items])
+        console.print(f"[bold green]Labeled {len(job_items)} emails as 'Jobs'.[/]")
+
+    elif "Pick individually" in action:
+        console.print("[dim]  Space = select   ↑↓ = navigate   Enter = confirm[/]\n")
+        choices = [
+            questionary.Choice(
+                title=f"{'today' if age == 0 else 'yesterday' if age == 1 else f'{age}d ago':>9}  "
+                      f"{sender[:28]:<28}  {subject[:45]}",
+                value=i,
+            )
+            for i, (_, sender, subject, age) in enumerate(job_items)
+        ]
+        selected = questionary.checkbox("Select emails to act on:", choices=choices).ask()
+        if not selected:
+            return
+
+        act = questionary.select(
+            f"Action for {len(selected)} selected emails:",
+            choices=["Star", "Label as 'Jobs'", "Delete"],
+        ).ask()
+
+        if act == "Star":
+            for i in selected:
+                modify_labels(service, job_items[i][0], add_labels=["STARRED"])
+            console.print(f"[bold green]Starred {len(selected)} emails.[/]")
+        elif act == "Label as 'Jobs'":
+            _apply_labels(service, [(job_items[i][0], "Jobs") for i in selected])
+            console.print(f"[bold green]Labeled {len(selected)} emails.[/]")
+        elif act == "Delete":
+            max_trash = config.get("automation", {}).get("max_trash_per_run", 100)
+            to_delete = [job_items[i][0] for i in selected][:max_trash]
+            for msg_id in to_delete:
+                trash_message(service, msg_id)
+            console.print(f"[bold green]Deleted {len(to_delete)} emails.[/]")
