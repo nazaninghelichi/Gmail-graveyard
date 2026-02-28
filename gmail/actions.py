@@ -545,22 +545,10 @@ def run_browse_and_delete(service, config):
         email_items.append((msg_id, display_sender, subject, age_str, priority))
 
     priority_count = sum(1 for *_, p in email_items if p)
-    console.print("[dim]  Space = select   ↑↓ = navigate   Enter = confirm[/]")
     if priority_count:
         console.print(f"[dim]  ★ = priority email — be careful deleting these[/]")
+    console.print("[dim]  All selected by default — Space = deselect   ↑↓ = navigate   Enter = confirm[/]")
     console.print()
-
-    choices = [
-        questionary.Choice(
-            title=(
-                f"★ {age_str}  {display_sender[:28]:<28}  {subject[:48]}"
-                if priority
-                else f"  {age_str}  {display_sender[:28]:<28}  {subject[:48]}"
-            ),
-            value=i,
-        )
-        for i, (msg_id, display_sender, subject, age_str, priority) in enumerate(email_items)
-    ]
 
     mode = questionary.select(
         "Selection mode:",
@@ -574,11 +562,24 @@ def run_browse_and_delete(service, config):
 
     keep_mode = "KEEP" in mode
 
+    choices = [
+        questionary.Choice(
+            title=(
+                f"★ {age_str}  {display_sender[:28]:<28}  {subject[:48]}"
+                if priority
+                else f"  {age_str}  {display_sender[:28]:<28}  {subject[:48]}"
+            ),
+            value=i,
+            checked=True,
+        )
+        for i, (msg_id, display_sender, subject, age_str, priority) in enumerate(email_items)
+    ]
+
     selected_indices = questionary.checkbox(
         (
-            f"Select emails to KEEP ({len(email_items)} shown, newest first):"
+            f"Emails to KEEP ({len(email_items)} shown — uncheck any to delete):"
             if keep_mode
-            else f"Select emails to DELETE ({len(email_items)} shown, newest first):"
+            else f"Emails to DELETE ({len(email_items)} shown — uncheck any to keep):"
         ),
         choices=choices,
     ).ask()
@@ -692,16 +693,17 @@ def run_job_emails(service, config):
         console.print(f"[bold green]Labeled {len(job_items)} emails as 'Jobs'.[/]")
 
     elif "Pick individually" in action:
-        console.print("[dim]  Space = select   ↑↓ = navigate   Enter = confirm[/]\n")
+        console.print("[dim]  All selected by default — Space = deselect   ↑↓ = navigate   Enter = confirm[/]\n")
         choices = [
             questionary.Choice(
                 title=f"{'today' if age == 0 else 'yesterday' if age == 1 else f'{age}d ago':>9}  "
                       f"{sender[:28]:<28}  {subject[:45]}",
                 value=i,
+                checked=True,
             )
             for i, (_, sender, subject, age) in enumerate(job_items)
         ]
-        selected = questionary.checkbox("Select emails to act on:", choices=choices).ask()
+        selected = questionary.checkbox("Select emails to act on (uncheck any to skip):", choices=choices).ask()
         if not selected:
             return
 
