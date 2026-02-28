@@ -19,6 +19,7 @@ rules:
   #   - boss@company.com
   #   - recruiter@company.com
 
+
 automation:
   schedule: daily        # daily or weekly
   max_trash_per_run: 100 # safety cap — never trashes more than this per run
