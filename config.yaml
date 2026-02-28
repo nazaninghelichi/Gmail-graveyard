@@ -13,13 +13,11 @@ rules:
     - deadline
     - action required
 
-  # Add email addresses of people you never want emails deleted from
-  priority_senders: []
-  # priority_senders:
-  #   - boss@company.com
-  #   - recruiter@company.com
+  # Add email addresses or domains you never want emails deleted from
+  priority_senders:
+    - yorku.ca
 
 
 automation:
   schedule: daily        # daily or weekly
-  max_trash_per_run: 100 # safety cap — never trashes more than this per run
+  max_trash_per_run: 500 # safety cap — never trashes more than this per run

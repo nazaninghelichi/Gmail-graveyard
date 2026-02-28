@@ -116,7 +116,7 @@ def _scan(service, config):
 
 def run_cleanup(service, config, dry_run=True):
     """Full scan: auto-handle old/priority/duplicates, then ask user what to do per category."""
-    max_trash = config.get("automation", {}).get("max_trash_per_run", 100)
+    max_trash = config.get("automation", {}).get("max_trash_per_run", 500)
 
     console.print("\n[bold cyan]Scanning Gmail...[/]\n")
     result = _scan(service, config)
@@ -240,7 +240,7 @@ def run_cleanup(service, config, dry_run=True):
 
 def run_unsubscribe_only(service, config, dry_run=True):
     """Scan for newsletter emails, list unsubscribe links, and optionally unsubscribe."""
-    max_trash = config.get("automation", {}).get("max_trash_per_run", 100)
+    max_trash = config.get("automation", {}).get("max_trash_per_run", 500)
 
     console.print("\n[bold cyan]Scanning for newsletter emails...[/]\n")
     all_msgs = list_messages(service, query="in:inbox", max_results=500)
@@ -381,7 +381,7 @@ def run_unsubscribe_only(service, config, dry_run=True):
 
 def run_duplicates_only(service, config, dry_run=True):
     """Find and optionally trash duplicate emails."""
-    max_trash = config.get("automation", {}).get("max_trash_per_run", 100)
+    max_trash = config.get("automation", {}).get("max_trash_per_run", 500)
     console.print("\n[bold cyan]Scanning for duplicate emails...[/]\n")
     all_msgs = list_messages(service, query="in:inbox", max_results=500)
     msgs_with_headers = _fetch_with_headers(service, all_msgs)
@@ -456,7 +456,7 @@ def run_delete_old_only(service, config, dry_run=True):
     """Find and optionally trash emails older than a user-chosen threshold."""
     rules = config.get("rules", {})
     config_days = rules.get("delete_older_than_days", 90)
-    max_trash = config.get("automation", {}).get("max_trash_per_run", 100)
+    max_trash = config.get("automation", {}).get("max_trash_per_run", 500)
     priority_keywords = rules.get("priority_keywords", [])
     priority_senders = rules.get("priority_senders", [])
 
@@ -515,7 +515,7 @@ def run_delete_old_only(service, config, dry_run=True):
 
 def run_browse_and_delete(service, config):
     """List the last 100 inbox emails and let the user select which to delete."""
-    max_trash = config.get("automation", {}).get("max_trash_per_run", 100)
+    max_trash = config.get("automation", {}).get("max_trash_per_run", 500)
     rules = config.get("rules", {})
     priority_keywords = rules.get("priority_keywords", [])
     priority_senders = rules.get("priority_senders", [])
@@ -723,7 +723,7 @@ def run_job_emails(service, config):
             _apply_labels(service, [(job_items[i][0], "Jobs") for i in selected])
             console.print(f"[bold green]Labeled {len(selected)} emails.[/]")
         elif act == "Delete":
-            max_trash = config.get("automation", {}).get("max_trash_per_run", 100)
+            max_trash = config.get("automation", {}).get("max_trash_per_run", 500)
             to_delete = [job_items[i][0] for i in selected][:max_trash]
             for msg_id in to_delete:
                 trash_message(service, msg_id)
