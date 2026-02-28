@@ -34,6 +34,11 @@ def get_credentials():
                     "  5. Run again — a browser window will open for sign-in\n"
                 )
             flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
+            console.print(
+                "\n[bold yellow]A sign-in URL will appear below.[/]\n"
+                "Copy it and open it in [bold]Chrome or Firefox[/] "
+                "[dim](Safari may block the localhost callback)[/]\n"
+            )
             creds = flow.run_local_server(port=8080, open_browser=False)
 
         with open(TOKEN_FILE, "w") as f:
