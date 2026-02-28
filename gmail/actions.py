@@ -284,14 +284,20 @@ def run_unsubscribe_only(service, dry_run=True):
             console.print(result_table)
             console.print()
 
-    # --- Label all newsletter emails ---
+    # --- Label or delete all newsletter emails ---
     if to_label:
-        confirmed = questionary.confirm(
-            f"Also label all {len(to_label)} newsletter emails?", default=False
+        bulk_choice = questionary.select(
+            f"What do you want to do with all {len(to_label)} newsletter emails?",
+            choices=["Label", "Delete", "Skip"],
+            default="Skip",
         ).ask()
-        if confirmed:
+        if bulk_choice == "Label":
             _apply_labels(service, to_label)
             console.print(f"[bold green]Labeled {len(to_label)} emails.[/]")
+        elif bulk_choice == "Delete":
+            for msg_id, _ in to_label:
+                trash_message(service, msg_id)
+            console.print(f"[bold green]Deleted {len(to_label)} emails.[/]")
 
 
 def run_duplicates_only(service, config, dry_run=True):
