@@ -492,6 +492,9 @@ def run_delete_old_only(service, config, dry_run=True):
 def run_browse_and_delete(service, config):
     """List the last 100 inbox emails and let the user select which to delete."""
     max_trash = config.get("automation", {}).get("max_trash_per_run", 100)
+    rules = config.get("rules", {})
+    priority_keywords = rules.get("priority_keywords", [])
+    priority_senders = rules.get("priority_senders", [])
 
     console.print("\n[bold cyan]Loading last 100 emails...[/]\n")
     all_msgs = list_messages(service, query="in:inbox", max_results=100)
@@ -513,18 +516,26 @@ def run_browse_and_delete(service, config):
             age_str = "yesterday"
         else:
             age_str = f"{age}d ago   "[:9]
-        # Strip angle-bracket portion from sender e.g. "Name <email@x.com>" → "Name"
         display_sender = sender.split("<")[0].strip() or sender
-        email_items.append((msg_id, display_sender, subject, age_str))
+        priority = is_priority(headers, priority_keywords, priority_senders)
+        email_items.append((msg_id, display_sender, subject, age_str, priority))
 
-    console.print("[dim]  Space = select   ↑↓ = navigate   Enter = confirm[/]\n")
+    priority_count = sum(1 for *_, p in email_items if p)
+    console.print("[dim]  Space = select   ↑↓ = navigate   Enter = confirm[/]")
+    if priority_count:
+        console.print(f"[dim]  ★ = priority email — be careful deleting these[/]")
+    console.print()
 
     choices = [
         questionary.Choice(
-            title=f"{age_str}  {display_sender[:30]:<30}  {subject[:50]}",
+            title=(
+                f"★ {age_str}  {display_sender[:28]:<28}  {subject[:48]}"
+                if priority
+                else f"  {age_str}  {display_sender[:28]:<28}  {subject[:48]}"
+            ),
             value=i,
         )
-        for i, (msg_id, display_sender, subject, age_str) in enumerate(email_items)
+        for i, (msg_id, display_sender, subject, age_str, priority) in enumerate(email_items)
     ]
 
     selected_indices = questionary.checkbox(
@@ -536,7 +547,15 @@ def run_browse_and_delete(service, config):
         console.print("[dim]Nothing selected.[/]")
         return
 
-    to_delete = [email_items[i][0] for i in selected_indices]
+    to_delete = [email_items[i][0] for i in selected_indices if not email_items[i][4]]
+    priority_selected = [email_items[i] for i in selected_indices if email_items[i][4]]
+    if priority_selected:
+        console.print(
+            f"[bold yellow]Warning:[/] {len(priority_selected)} priority email(s) selected — skipping them.\n"
+            f"  Star them first if you want to protect them, or use Full cleanup to handle manually."
+        )
+        if not to_delete:
+            return
 
     if len(to_delete) > max_trash:
         console.print(
