@@ -1,4 +1,7 @@
 import re
+import urllib.error
+import urllib.parse
+import urllib.request
 
 from rich.console import Console
 from rich.table import Table
@@ -9,7 +12,11 @@ console = Console()
 
 
 def get_unsubscribe_links(headers):
-    """Parse the List-Unsubscribe header and return mailto/http links."""
+    """Parse List-Unsubscribe (and List-Unsubscribe-Post) headers.
+
+    Returns a dict with keys: mailto, http, one_click (bool).
+    Returns None if no unsubscribe header is present.
+    """
     header = get_header(headers, "List-Unsubscribe")
     if not header:
         return None
@@ -23,7 +30,68 @@ def get_unsubscribe_links(headers):
     if http:
         result["http"] = http.group(1)
 
-    return result if result else None
+    # RFC 8058 one-click POST support
+    post_header = get_header(headers, "List-Unsubscribe-Post")
+    result["one_click"] = "List-Unsubscribe=One-Click" in (post_header or "")
+
+    return result if (result.get("mailto") or result.get("http")) else None
+
+
+def attempt_unsubscribe(service, links):
+    """Try to unsubscribe using the best available method.
+
+    Returns (method, status) where status is one of:
+      "ok"     — HTTP 2xx received or email sent
+      "failed" — request errored out
+      "manual" — non-2xx response, may need manual action
+    """
+    # Prefer one-click POST, then http GET, then mailto
+    if links.get("http"):
+        url = links["http"]
+        try:
+            if links.get("one_click"):
+                data = b"List-Unsubscribe=One-Click"
+                req = urllib.request.Request(
+                    url, data=data, method="POST",
+                    headers={
+                        "User-Agent": "Mozilla/5.0",
+                        "Content-Type": "application/x-www-form-urlencoded",
+                    },
+                )
+            else:
+                req = urllib.request.Request(
+                    url,
+                    headers={"User-Agent": "Mozilla/5.0"},
+                )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                if resp.status in (200, 201, 202, 204):
+                    return ("http", "ok")
+                return ("http", "manual")
+        except urllib.error.HTTPError as e:
+            if e.code in (200, 201, 202, 204):
+                return ("http", "ok")
+            return ("http", "manual")
+        except Exception:
+            # Fall through to mailto if http fails
+            pass
+
+    if links.get("mailto"):
+        try:
+            from gmail.client import send_message
+            uri = links["mailto"][len("mailto:"):]
+            if "?" in uri:
+                address, params = uri.split("?", 1)
+                parsed = urllib.parse.parse_qs(params)
+                subject = parsed.get("subject", ["Unsubscribe"])[0]
+            else:
+                address = uri
+                subject = "Unsubscribe"
+            send_message(service, to=address.strip(), subject=subject)
+            return ("mailto", "ok")
+        except Exception:
+            return ("mailto", "failed")
+
+    return ("unknown", "failed")
 
 
 def print_unsubscribe_report(items):

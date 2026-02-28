@@ -6,7 +6,7 @@ from rich.table import Table
 from gmail.analyzer import get_header, get_age_days, is_newsletter, is_priority, categorize
 from gmail.client import list_messages, get_message_metadata, trash_message, modify_labels, get_or_create_label
 from gmail.duplicates import find_duplicates
-from gmail.unsubscribe import get_unsubscribe_links, print_unsubscribe_report
+from gmail.unsubscribe import attempt_unsubscribe, get_unsubscribe_links, print_unsubscribe_report
 
 console = Console()
 
@@ -216,28 +216,82 @@ def run_cleanup(service, config, dry_run=True):
 
 
 def run_unsubscribe_only(service, dry_run=True):
-    """Scan for newsletter emails and list their unsubscribe links."""
+    """Scan for newsletter emails, list unsubscribe links, and optionally unsubscribe."""
     console.print("\n[bold cyan]Scanning for newsletter emails...[/]\n")
     all_msgs = list_messages(service, query="in:inbox", max_results=500)
     msgs_with_headers = _fetch_with_headers(service, all_msgs)
 
-    items = []
-    to_label = []
+    items = []       # (sender, subject, links) — only those with unsubscribe links
+    to_label = []    # all newsletter msg_ids for labeling
+
     for msg_id, headers in msgs_with_headers:
         if is_newsletter(headers):
             links = get_unsubscribe_links(headers)
-            items.append((get_header(headers, "From"), get_header(headers, "Subject"), links or {}))
+            if links:
+                items.append((get_header(headers, "From"), get_header(headers, "Subject"), links))
             to_label.append((msg_id, "Newsletters"))
 
     print_unsubscribe_report(items)
 
-    if dry_run or not to_label:
+    if dry_run:
+        if items:
+            console.print("Dry run — run without --dry-run to unsubscribe.")
         return
 
-    confirmed = questionary.confirm(f"Label {len(to_label)} emails as 'Newsletters'?", default=False).ask()
-    if confirmed:
-        _apply_labels(service, to_label)
-        console.print(f"[bold green]Labeled {len(to_label)} emails.[/]")
+    # --- Let user pick which senders to unsubscribe from ---
+    if items:
+        choices = [
+            questionary.Choice(
+                title=f"{(sender or '—')[:55]}",
+                value=i,
+            )
+            for i, (sender, subject, links) in enumerate(items)
+        ]
+        selected_indices = questionary.checkbox(
+            f"Select newsletters to unsubscribe from ({len(items)} available):",
+            choices=choices,
+        ).ask()
+
+        if selected_indices is None:
+            console.print("[bold red]Aborted.[/]")
+            return
+
+        if selected_indices:
+            console.print()
+            result_rows = []
+            for i in selected_indices:
+                sender, subject, links = items[i]
+                method, status = attempt_unsubscribe(service, links)
+                result_rows.append((sender, method, status))
+
+            # Results table
+            result_table = Table(show_header=True, header_style="bold cyan")
+            result_table.add_column("Sender", style="white", max_width=50)
+            result_table.add_column("Method", style="dim")
+            result_table.add_column("Result")
+
+            status_display = {
+                "ok":     "[bold green]Unsubscribed[/]",
+                "manual": "[bold yellow]Sent — confirm on their site[/]",
+                "failed": "[bold red]Failed[/]",
+            }
+            for sender, method, status in result_rows:
+                result_table.add_row(
+                    (sender or "—")[:50],
+                    method,
+                    status_display.get(status, status),
+                )
+            console.print(result_table)
+            console.print()
+
+    # --- Label all newsletter emails ---
+    if to_label:
+        confirmed = questionary.confirm(
+            f"Also label all {len(to_label)} newsletter emails?", default=False
+        ).ask()
+        if confirmed:
+            _apply_labels(service, to_label)
+            console.print(f"[bold green]Labeled {len(to_label)} emails.[/]")
 
 
 def run_duplicates_only(service, config, dry_run=True):

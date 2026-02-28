@@ -24,8 +24,22 @@ def get_message_metadata(service, msg_id):
         userId="me",
         id=msg_id,
         format="metadata",
-        metadataHeaders=["Subject", "From", "Date", "List-Unsubscribe", "Message-ID"],
+        metadataHeaders=[
+            "Subject", "From", "Date",
+            "List-Unsubscribe", "List-Unsubscribe-Post", "Message-ID",
+        ],
     ).execute()
+
+
+def send_message(service, to, subject="", body=""):
+    """Send a plain-text email from the authenticated account."""
+    import base64
+    from email.mime.text import MIMEText
+    msg = MIMEText(body)
+    msg["to"] = to
+    msg["subject"] = subject
+    raw = base64.urlsafe_b64encode(msg.as_bytes()).decode()
+    service.users().messages().send(userId="me", body={"raw": raw}).execute()
 
 
 def trash_message(service, msg_id):
