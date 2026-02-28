@@ -420,12 +420,38 @@ def run_organize_only(service, config, dry_run=True):
 
 
 def run_delete_old_only(service, config, dry_run=True):
-    """Find and optionally trash emails older than the configured threshold."""
+    """Find and optionally trash emails older than a user-chosen threshold."""
     rules = config.get("rules", {})
-    delete_days = rules.get("delete_older_than_days", 90)
+    config_days = rules.get("delete_older_than_days", 90)
     max_trash = config.get("automation", {}).get("max_trash_per_run", 100)
     priority_keywords = rules.get("priority_keywords", [])
     priority_senders = rules.get("priority_senders", [])
+
+    # Ask the user how old emails should be
+    presets = ["30 days", "60 days", "90 days", "180 days", "1 year (365 days)", "Custom..."]
+    preset_map = {"30 days": 30, "60 days": 60, "90 days": 90,
+                  "180 days": 180, "1 year (365 days)": 365}
+    default_label = f"{config_days} days" if f"{config_days} days" in preset_map else "90 days"
+
+    age_choice = questionary.select(
+        "Delete emails older than:",
+        choices=presets,
+        default=default_label if default_label in presets else "90 days",
+    ).ask()
+
+    if age_choice is None:
+        return
+
+    if age_choice == "Custom...":
+        raw = questionary.text(
+            "Enter number of days:",
+            validate=lambda v: v.isdigit() and int(v) > 0 or "Please enter a positive number",
+        ).ask()
+        if raw is None:
+            return
+        delete_days = int(raw)
+    else:
+        delete_days = preset_map[age_choice]
 
     console.print(f"\n[bold cyan]Scanning for emails older than {delete_days} days...[/]\n")
     all_msgs = list_messages(service, query=f"in:inbox older_than:{delete_days}d", max_results=500)
