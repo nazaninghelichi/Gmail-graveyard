@@ -6,7 +6,7 @@ from rich.table import Table
 from gmail.analyzer import get_header, get_age_days, is_newsletter, is_priority, categorize
 from gmail.client import list_messages, get_message_metadata, trash_message, modify_labels, get_or_create_label
 from gmail.duplicates import find_duplicates
-from gmail.unsubscribe import attempt_unsubscribe, get_unsubscribe_links, print_unsubscribe_report
+from gmail.unsubscribe import attempt_unsubscribe, get_unsubscribe_links, is_job_alert, print_unsubscribe_report
 
 console = Console()
 
@@ -244,7 +244,14 @@ def run_unsubscribe_only(service, dry_run=True):
         choices = [
             questionary.Choice(title="── Select all ──", value=-1),
         ] + [
-            questionary.Choice(title=f"{(sender or '—')[:55]}", value=i)
+            questionary.Choice(
+                title=(
+                    f"[JOB ALERT] {(sender or '—')[:45]}"
+                    if is_job_alert(sender, subject)
+                    else f"{(sender or '—')[:55]}"
+                ),
+                value=i,
+            )
             for i, (sender, subject, links) in enumerate(items)
         ]
         selected_indices = questionary.checkbox(

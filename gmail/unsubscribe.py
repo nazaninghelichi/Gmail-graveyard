@@ -94,6 +94,31 @@ def attempt_unsubscribe(service, links):
     return ("unknown", "failed")
 
 
+_JOB_ALERT_KEYWORDS = [
+    "job alert", "job opportunity", "job opportunities", "jobs for you",
+    "jobs matching", "job match", "job recommendation", "new jobs",
+    "career alert", "career opportunity", "career opportunities",
+    "talent alert", "talent community", "talent network",
+    "hiring alert", "open position", "open role",
+    "we found jobs", "jobs you may like",
+]
+
+_JOB_ALERT_SENDERS = [
+    "linkedin", "indeed", "glassdoor", "ziprecruiter", "monster",
+    "talent.com", "workopolis", "simplyhired", "careerbuilder",
+    "joblist", "ladders", "dice.com", "hired.com", "wellfound",
+]
+
+
+def is_job_alert(sender: str, subject: str) -> bool:
+    """Return True if the email looks like a job/career alert."""
+    combined = ((sender or "") + " " + (subject or "")).lower()
+    return (
+        any(k in combined for k in _JOB_ALERT_KEYWORDS)
+        or any(s in combined for s in _JOB_ALERT_SENDERS)
+    )
+
+
 def print_unsubscribe_report(items):
     """Print a formatted rich table of (sender, subject, links) tuples."""
     if not items:
@@ -103,17 +128,24 @@ def print_unsubscribe_report(items):
     console.print(f"\n  Found [bold yellow]{len(items)}[/] emails with unsubscribe links:\n")
 
     table = Table(show_header=True, header_style="bold cyan", show_lines=True)
-    table.add_column("From", style="white", max_width=38)
-    table.add_column("Subject", style="dim", max_width=38)
+    table.add_column("From", max_width=38)
+    table.add_column("Subject", max_width=38)
     table.add_column("Unsubscribe Link", style="bold blue", max_width=50)
 
     for sender, subject, links in items:
         link = links.get("http") or links.get("mailto") or "—"
-        table.add_row(
-            (sender or "—")[:38],
-            (subject or "—")[:38],
-            link,
-        )
+        if is_job_alert(sender, subject):
+            table.add_row(
+                f"[bold magenta]{(sender or '—')[:38]}[/]",
+                f"[magenta]{(subject or '—')[:38]}[/]",
+                link,
+            )
+        else:
+            table.add_row(
+                f"[white]{(sender or '—')[:38]}[/]",
+                f"[dim]{(subject or '—')[:38]}[/]",
+                link,
+            )
 
     console.print(table)
     console.print()
