@@ -304,13 +304,13 @@ def run_unsubscribe_only(service, config, dry_run=True):
                     else f"{(sender or '—')[:55]}"
                 ),
                 value=i,
-                checked=True,
             )
             for i, (sender, subject, links) in enumerate(items)
         ]
         selected_indices = questionary.checkbox(
             f"Unsubscribe from ({len(items)} selected — uncheck any to skip):",
             choices=choices,
+            default=list(range(len(items))),
         ).ask()
 
         if selected_indices is None:
@@ -570,7 +570,6 @@ def run_browse_and_delete(service, config):
                 else f"  {age_str}  {display_sender[:28]:<28}  {subject[:48]}"
             ),
             value=i,
-            checked=True,
         )
         for i, (msg_id, display_sender, subject, age_str, priority) in enumerate(email_items)
     ]
@@ -582,6 +581,7 @@ def run_browse_and_delete(service, config):
             else f"Emails to DELETE ({len(email_items)} shown — uncheck any to keep):"
         ),
         choices=choices,
+        default=list(range(len(email_items))),
     ).ask()
 
     if selected_indices is None:
@@ -699,11 +699,14 @@ def run_job_emails(service, config):
                 title=f"{'today' if age == 0 else 'yesterday' if age == 1 else f'{age}d ago':>9}  "
                       f"{sender[:28]:<28}  {subject[:45]}",
                 value=i,
-                checked=True,
             )
             for i, (_, sender, subject, age) in enumerate(job_items)
         ]
-        selected = questionary.checkbox("Select emails to act on (uncheck any to skip):", choices=choices).ask()
+        selected = questionary.checkbox(
+            "Select emails to act on (uncheck any to skip):",
+            choices=choices,
+            default=list(range(len(job_items))),
+        ).ask()
         if not selected:
             return
 
