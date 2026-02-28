@@ -505,7 +505,7 @@ def run_delete_old_only(service, config, dry_run=True):
         console.print("Dry run. Run without --dry-run to trash them.")
         return
 
-    to_trash = to_trash[:max_trash]
+    to_trash = to_trash[:500]
     confirmed = questionary.confirm(f"Move {len(to_trash)} emails to Trash?", default=False).ask()
     if confirmed:
         for msg_id in to_trash:
