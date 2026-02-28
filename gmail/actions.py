@@ -452,3 +452,68 @@ def run_delete_old_only(service, config, dry_run=True):
         for msg_id in to_trash:
             trash_message(service, msg_id)
         console.print(f"[bold green]Trashed {len(to_trash)} emails.[/]")
+
+
+def run_browse_and_delete(service, config):
+    """List the last 100 inbox emails and let the user select which to delete."""
+    max_trash = config.get("automation", {}).get("max_trash_per_run", 100)
+
+    console.print("\n[bold cyan]Loading last 100 emails...[/]\n")
+    all_msgs = list_messages(service, query="in:inbox", max_results=100)
+    msgs_with_headers = _fetch_with_headers(service, all_msgs)
+
+    if not msgs_with_headers:
+        console.print("  [bold green]Inbox is empty.[/]")
+        return
+
+    # Build display items
+    email_items = []
+    for msg_id, headers in msgs_with_headers:
+        sender = get_header(headers, "From") or "—"
+        subject = get_header(headers, "Subject") or "(no subject)"
+        age = get_age_days(headers)
+        if age == 0:
+            age_str = "today    "
+        elif age == 1:
+            age_str = "yesterday"
+        else:
+            age_str = f"{age}d ago   "[:9]
+        # Strip angle-bracket portion from sender e.g. "Name <email@x.com>" → "Name"
+        display_sender = sender.split("<")[0].strip() or sender
+        email_items.append((msg_id, display_sender, subject, age_str))
+
+    console.print("[dim]  Space = select   ↑↓ = navigate   Enter = confirm[/]\n")
+
+    choices = [
+        questionary.Choice(
+            title=f"{age_str}  {display_sender[:30]:<30}  {subject[:50]}",
+            value=i,
+        )
+        for i, (msg_id, display_sender, subject, age_str) in enumerate(email_items)
+    ]
+
+    selected_indices = questionary.checkbox(
+        f"Select emails to delete ({len(email_items)} shown, newest first):",
+        choices=choices,
+    ).ask()
+
+    if not selected_indices:
+        console.print("[dim]Nothing selected.[/]")
+        return
+
+    to_delete = [email_items[i][0] for i in selected_indices]
+
+    if len(to_delete) > max_trash:
+        console.print(
+            f"[bold red]Safety cap:[/] {len(to_delete)} selected, "
+            f"limit is {max_trash}. First {max_trash} will be deleted."
+        )
+        to_delete = to_delete[:max_trash]
+
+    confirmed = questionary.confirm(
+        f"Delete {len(to_delete)} selected emails?", default=False
+    ).ask()
+    if confirmed:
+        for msg_id in to_delete:
+            trash_message(service, msg_id)
+        console.print(f"[bold green]Deleted {len(to_delete)} emails.[/]")

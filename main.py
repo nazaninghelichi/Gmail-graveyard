@@ -162,6 +162,7 @@ def main():
         return
 
     from gmail.actions import (
+        run_browse_and_delete,
         run_cleanup,
         run_delete_old_only,
         run_duplicates_only,
@@ -182,6 +183,7 @@ def main():
                 "What would you like to do?",
                 choices=[
                     "Full cleanup  (scan + auto-actions + choose per category)",
+                    "Browse & delete  (pick from last 100 emails)",
                     "Delete old emails only",
                     "Find newsletters & unsubscribe links",
                     "Organize by category  (apply labels)",
@@ -190,6 +192,10 @@ def main():
                     "Exit",
                 ],
             ).ask()
+
+            if action_choice and "Browse & delete" in action_choice:
+                run_browse_and_delete(service, config)
+                continue
 
             if action_choice and "Clear review history" in action_choice:
                 from gmail.state import clear_reviewed, count_reviewed
