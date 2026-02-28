@@ -3,10 +3,13 @@ import os
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
+from rich.console import Console
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 TOKEN_FILE = "token.json"
 CREDENTIALS_FILE = "credentials.json"
+
+console = Console()
 
 
 def get_credentials():
@@ -31,7 +34,7 @@ def get_credentials():
                     "  5. Run again — a browser window will open for sign-in\n"
                 )
             flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
-            creds = flow.run_local_server(port=0)
+            creds = flow.run_local_server(port=8080, open_browser=False)
 
         with open(TOKEN_FILE, "w") as f:
             f.write(creds.to_json())
@@ -43,7 +46,10 @@ def signout():
     """Delete the local token file, requiring re-authentication on next run."""
     if os.path.exists(TOKEN_FILE):
         os.remove(TOKEN_FILE)
-        print("Signed out. Local token deleted.")
-        print("To fully revoke app access: https://myaccount.google.com/permissions")
+        console.print("[bold green]Signed out.[/] Local token deleted.")
+        console.print(
+            "To fully revoke app access: "
+            "[bold blue]https://myaccount.google.com/permissions[/]"
+        )
     else:
-        print("Not currently signed in (no token.json found).")
+        console.print("[bold yellow]Not currently signed in[/] (no token.json found).")

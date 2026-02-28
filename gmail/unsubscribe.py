@@ -1,6 +1,11 @@
 import re
 
+from rich.console import Console
+from rich.table import Table
+
 from gmail.analyzer import get_header
+
+console = Console()
 
 
 def get_unsubscribe_links(headers):
@@ -22,17 +27,25 @@ def get_unsubscribe_links(headers):
 
 
 def print_unsubscribe_report(items):
-    """Print a formatted list of (sender, subject, links) tuples."""
+    """Print a formatted rich table of (sender, subject, links) tuples."""
     if not items:
-        print("  No newsletter unsubscribe links found.")
+        console.print("  [bold green]No newsletter unsubscribe links found.[/]")
         return
 
-    print(f"\n  Found {len(items)} emails with unsubscribe links:\n")
-    for i, (sender, subject, links) in enumerate(items, 1):
-        print(f"  {i:3}. From:    {sender[:70]}")
-        print(f"       Subject: {subject[:70]}")
-        if "http" in links:
-            print(f"       Link:    {links['http']}")
-        elif "mailto" in links:
-            print(f"       Mailto:  {links['mailto']}")
-        print()
+    console.print(f"\n  Found [bold yellow]{len(items)}[/] emails with unsubscribe links:\n")
+
+    table = Table(show_header=True, header_style="bold cyan", show_lines=True)
+    table.add_column("From", style="white", max_width=38)
+    table.add_column("Subject", style="dim", max_width=38)
+    table.add_column("Unsubscribe Link", style="bold blue", max_width=50)
+
+    for sender, subject, links in items:
+        link = links.get("http") or links.get("mailto") or "—"
+        table.add_row(
+            (sender or "—")[:38],
+            (subject or "—")[:38],
+            link,
+        )
+
+    console.print(table)
+    console.print()

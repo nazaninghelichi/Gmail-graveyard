@@ -11,8 +11,24 @@ DEFAULT_PRIORITY_KEYWORDS = [
 
 CATEGORY_RULES = [
     (["receipt", "order confirmation", "your order", "purchase", "shipment", "tracking number"], "Shopping"),
+    ([
+        "% off", "off today", "sale ends", "flash sale", "clearance", "shop now",
+        "limited time", "exclusive offer", "special offer", "today only", "deal of",
+        "free shipping", "new arrivals", "back in stock", "just for you", "don't miss",
+        "save up to", "extra savings", "coupon", "promo code", "discount code",
+        "you might like", "we picked these", "check out our", "shop the",
+    ], "Store Promos"),
     (["github", "gitlab", "jira", "bitbucket", "jenkins", "pull request", "commit"], "Dev Tools"),
     (["newsletter", "unsubscribe", "weekly digest", "monthly update", "our latest"], "Newsletters"),
+    ([
+        "charged", "you've been charged", "charge of",
+        "subscription", "your subscription", "subscription renewal", "subscription confirmed",
+        "billing", "your bill",
+        "auto-renew", "autorenewal", "auto renewal", "renewal notice",
+        "payment received", "payment confirmed", "payment processed", "payment successful",
+        "monthly charge", "annual charge", "recurring charge",
+        "your plan", "plan renewal",
+    ], "Billing & Payments"),
     (["statement", "transaction", "bank", "credit card", "paypal", "wire transfer"], "Finance"),
 ]
 
