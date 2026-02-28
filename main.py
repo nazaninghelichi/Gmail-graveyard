@@ -186,9 +186,22 @@ def main():
                     "Find newsletters & unsubscribe links",
                     "Organize by category  (apply labels)",
                     "Find duplicates",
+                    "Clear review history  (re-show previously skipped/labeled emails)",
                     "Exit",
                 ],
             ).ask()
+
+            if action_choice and "Clear review history" in action_choice:
+                from gmail.state import clear_reviewed, count_reviewed
+                n = count_reviewed()
+                confirmed = questionary.confirm(
+                    f"Clear history of {n} reviewed emails? They will reappear on next scan.",
+                    default=False,
+                ).ask()
+                if confirmed:
+                    clear_reviewed()
+                    console.print("[bold green]Review history cleared.[/]")
+                continue
 
             if action_choice is None or action_choice == "Exit":
                 exit_choice = questionary.select(
@@ -223,7 +236,7 @@ def main():
             elif "Delete old" in action_choice:
                 run_delete_old_only(service, config, dry_run=dry_run)
             elif "newsletters" in action_choice:
-                run_unsubscribe_only(service, dry_run=dry_run)
+                run_unsubscribe_only(service, config, dry_run=dry_run)
             elif "Organize" in action_choice:
                 run_organize_only(service, config, dry_run=dry_run)
             elif "duplicates" in action_choice:

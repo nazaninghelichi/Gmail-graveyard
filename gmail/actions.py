@@ -1,11 +1,13 @@
 import questionary
 from rich.console import Console
+from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TaskProgressColumn
 from rich.table import Table
 
 from gmail.analyzer import get_header, get_age_days, is_newsletter, is_priority, categorize
 from gmail.client import list_messages, get_message_metadata, trash_message, modify_labels, get_or_create_label
 from gmail.duplicates import find_duplicates
+from gmail.state import load_reviewed, mark_reviewed
 from gmail.unsubscribe import attempt_unsubscribe, get_unsubscribe_links, is_job_alert, print_unsubscribe_report
 
 console = Console()
@@ -43,7 +45,8 @@ def _apply_labels(service, to_label):
 def _scan(service, config):
     """
     Scan the inbox and categorize all emails.
-    Returns auto-action lists (to_trash, to_priority) and category_groups for user to decide.
+    Filters out already-reviewed message IDs.
+    Returns auto-action lists and category_groups for user to decide.
     No changes are made.
     """
     rules = config.get("rules", {})
@@ -55,10 +58,13 @@ def _scan(service, config):
     console.print(f"  Found [bold yellow]{len(all_msgs)}[/] messages in inbox. Fetching details...")
     msgs_with_headers = _fetch_with_headers(service, all_msgs)
 
+    reviewed = load_reviewed()
+
     to_trash = []
     to_priority = []
     category_groups = {}
-    newsletter_items = []
+    newsletter_items = []   # parallel list with category_groups["Newsletters"]
+    skipped_count = 0
 
     for msg_id, headers in msgs_with_headers:
         if is_priority(headers, priority_keywords, priority_senders):
@@ -68,6 +74,11 @@ def _scan(service, config):
         age = get_age_days(headers)
         if age >= delete_days:
             to_trash.append(msg_id)
+            continue
+
+        # Skip already-reviewed emails (labeled or skipped in a previous run)
+        if msg_id in reviewed:
+            skipped_count += 1
             continue
 
         if is_newsletter(headers):
@@ -86,6 +97,12 @@ def _scan(service, config):
 
     dup_groups = find_duplicates(msgs_with_headers)
     dup_ids = [msg_id for group in dup_groups for msg_id in group[1:]]
+
+    if skipped_count:
+        console.print(
+            f"  [dim]Skipping {skipped_count} already-reviewed emails "
+            f"(run 'Clear review history' to reset).[/]"
+        )
 
     return {
         "to_trash": to_trash,
@@ -132,7 +149,6 @@ def run_cleanup(service, config, dry_run=True):
         overview.add_column("Emails", justify="right", style="bold yellow")
         for category, msg_ids in result["category_groups"].items():
             overview.add_row(category, str(len(msg_ids)))
-        from rich.panel import Panel
         console.print(Panel(overview, title="[bold cyan]Categories found[/]", border_style="cyan"))
         console.print()
 
@@ -177,12 +193,15 @@ def run_cleanup(service, config, dry_run=True):
     # --- Build final action lists ---
     to_trash = list(result["to_trash"]) + list(result["dup_ids"])
     to_label = []
+    skipped_ids = []
     for category, msg_ids in result["category_groups"].items():
         action = category_actions.get(category, "s")
         if action == "d":
             to_trash.extend(msg_ids)
         elif action == "l":
             to_label.extend([(mid, category) for mid in msg_ids])
+        else:
+            skipped_ids.extend(msg_ids)  # "s" — remember these for next run
 
     if len(to_trash) > max_trash:
         console.print(f"[bold red]Safety cap:[/] {len(to_trash)} to trash, limit is {max_trash} (set in config.yaml).")
@@ -190,6 +209,7 @@ def run_cleanup(service, config, dry_run=True):
 
     if not to_trash and not to_label and not result["to_priority"]:
         console.print("Nothing to do.")
+        mark_reviewed(skipped_ids)
         return
 
     console.print(
@@ -209,27 +229,34 @@ def run_cleanup(service, config, dry_run=True):
     for msg_id in result["to_priority"]:
         modify_labels(service, msg_id, add_labels=["STARRED"])
 
+    # Mark labeled and skipped emails as reviewed so they don't reappear
+    mark_reviewed([mid for mid, _ in to_label] + skipped_ids)
+
     console.print(
         f"[bold green]Done.[/] Trashed {len(to_trash)}, "
         f"labeled {len(to_label)}, starred {len(result['to_priority'])} emails."
     )
 
 
-def run_unsubscribe_only(service, dry_run=True):
+def run_unsubscribe_only(service, config, dry_run=True):
     """Scan for newsletter emails, list unsubscribe links, and optionally unsubscribe."""
+    max_trash = config.get("automation", {}).get("max_trash_per_run", 100)
+
     console.print("\n[bold cyan]Scanning for newsletter emails...[/]\n")
     all_msgs = list_messages(service, query="in:inbox", max_results=500)
     msgs_with_headers = _fetch_with_headers(service, all_msgs)
 
-    items = []       # (sender, subject, links) — only those with unsubscribe links
-    to_label = []    # all newsletter msg_ids for labeling
+    reviewed = load_reviewed()
+    items = []       # (sender, subject, links) for those with unsubscribe links
+    to_label = []    # (msg_id, label) for all newsletter emails
 
     for msg_id, headers in msgs_with_headers:
         if is_newsletter(headers):
-            links = get_unsubscribe_links(headers)
-            if links:
-                items.append((get_header(headers, "From"), get_header(headers, "Subject"), links))
-            to_label.append((msg_id, "Newsletters"))
+            if msg_id not in reviewed:
+                links = get_unsubscribe_links(headers)
+                if links:
+                    items.append((get_header(headers, "From"), get_header(headers, "Subject"), links))
+                to_label.append((msg_id, "Newsletters"))
 
     print_unsubscribe_report(items)
 
@@ -263,7 +290,6 @@ def run_unsubscribe_only(service, dry_run=True):
             console.print("[bold red]Aborted.[/]")
             return
 
-        # "Select all" sentinel → expand to every index
         if -1 in selected_indices:
             selected_indices = list(range(len(items)))
 
@@ -275,12 +301,10 @@ def run_unsubscribe_only(service, dry_run=True):
                 method, status = attempt_unsubscribe(service, links)
                 result_rows.append((sender, method, status))
 
-            # Results table
             result_table = Table(show_header=True, header_style="bold cyan")
             result_table.add_column("Sender", style="white", max_width=50)
             result_table.add_column("Method", style="dim")
             result_table.add_column("Result")
-
             status_display = {
                 "ok":     "[bold green]Unsubscribed[/]",
                 "manual": "[bold yellow]Sent — confirm on their site[/]",
@@ -295,7 +319,7 @@ def run_unsubscribe_only(service, dry_run=True):
             console.print(result_table)
             console.print()
 
-    # --- Label or delete all newsletter emails ---
+    # --- Label or delete all newsletter emails (with cap) ---
     if to_label:
         bulk_choice = questionary.select(
             f"What do you want to do with all {len(to_label)} newsletter emails?",
@@ -304,11 +328,22 @@ def run_unsubscribe_only(service, dry_run=True):
         ).ask()
         if bulk_choice == "Label":
             _apply_labels(service, to_label)
+            mark_reviewed([mid for mid, _ in to_label])
             console.print(f"[bold green]Labeled {len(to_label)} emails.[/]")
         elif bulk_choice == "Delete":
-            for msg_id, _ in to_label:
+            to_delete = [mid for mid, _ in to_label]
+            if len(to_delete) > max_trash:
+                console.print(
+                    f"[bold red]Safety cap:[/] {len(to_delete)} to trash, "
+                    f"limit is {max_trash} (set in config.yaml)."
+                )
+                to_delete = to_delete[:max_trash]
+            for msg_id in to_delete:
                 trash_message(service, msg_id)
-            console.print(f"[bold green]Deleted {len(to_label)} emails.[/]")
+            console.print(f"[bold green]Deleted {len(to_delete)} emails.[/]")
+        else:
+            # Skipped — remember them so they don't reappear
+            mark_reviewed([mid for mid, _ in to_label])
 
 
 def run_duplicates_only(service, config, dry_run=True):
@@ -348,11 +383,14 @@ def run_organize_only(service, config, dry_run=True):
     all_msgs = list_messages(service, query="in:inbox", max_results=500)
     msgs_with_headers = _fetch_with_headers(service, all_msgs)
 
-    to_label = []
-    for msg_id, headers in msgs_with_headers:
-        category = categorize(headers)
-        if category:
-            to_label.append((msg_id, category))
+    reviewed = load_reviewed()
+    to_label = [
+        (msg_id, cat)
+        for msg_id, headers in msgs_with_headers
+        if msg_id not in reviewed
+        for cat in [categorize(headers)]
+        if cat
+    ]
 
     if not to_label:
         console.print("  [bold green]Nothing to organize.[/]")
@@ -377,6 +415,7 @@ def run_organize_only(service, config, dry_run=True):
     confirmed = questionary.confirm(f"Apply labels to {len(to_label)} emails?", default=False).ask()
     if confirmed:
         _apply_labels(service, to_label)
+        mark_reviewed([mid for mid, _ in to_label])
         console.print(f"[bold green]Labeled {len(to_label)} emails.[/]")
 
 
