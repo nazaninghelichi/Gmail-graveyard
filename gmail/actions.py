@@ -538,10 +538,36 @@ def run_browse_and_delete(service, config):
         for i, (msg_id, display_sender, subject, age_str, priority) in enumerate(email_items)
     ]
 
+    mode = questionary.select(
+        "Selection mode:",
+        choices=[
+            "Select emails to DELETE",
+            "Select emails to KEEP  (everything else gets deleted)",
+        ],
+    ).ask()
+    if mode is None:
+        return
+
+    keep_mode = "KEEP" in mode
+
     selected_indices = questionary.checkbox(
-        f"Select emails to delete ({len(email_items)} shown, newest first):",
+        (
+            f"Select emails to KEEP ({len(email_items)} shown, newest first):"
+            if keep_mode
+            else f"Select emails to DELETE ({len(email_items)} shown, newest first):"
+        ),
         choices=choices,
     ).ask()
+
+    if selected_indices is None:
+        return
+
+    if keep_mode:
+        kept = set(selected_indices)
+        selected_indices = [i for i in range(len(email_items)) if i not in kept]
+        if not selected_indices:
+            console.print("[dim]Nothing to delete — all emails kept.[/]")
+            return
 
     if not selected_indices:
         console.print("[dim]Nothing selected.[/]")
@@ -551,8 +577,8 @@ def run_browse_and_delete(service, config):
     priority_selected = [email_items[i] for i in selected_indices if email_items[i][4]]
     if priority_selected:
         console.print(
-            f"[bold yellow]Warning:[/] {len(priority_selected)} priority email(s) selected — skipping them.\n"
-            f"  Star them first if you want to protect them, or use Full cleanup to handle manually."
+            f"[bold yellow]Warning:[/] {len(priority_selected)} priority email(s) "
+            f"{'kept safe' if keep_mode else 'skipped'}.\n"
         )
         if not to_delete:
             return
