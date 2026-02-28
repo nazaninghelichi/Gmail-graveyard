@@ -240,11 +240,11 @@ def run_unsubscribe_only(service, dry_run=True):
 
     # --- Let user pick which senders to unsubscribe from ---
     if items:
+        console.print("[dim]  Space = select/deselect   ↑↓ = navigate   Enter = confirm[/]\n")
         choices = [
-            questionary.Choice(
-                title=f"{(sender or '—')[:55]}",
-                value=i,
-            )
+            questionary.Choice(title="── Select all ──", value=-1),
+        ] + [
+            questionary.Choice(title=f"{(sender or '—')[:55]}", value=i)
             for i, (sender, subject, links) in enumerate(items)
         ]
         selected_indices = questionary.checkbox(
@@ -255,6 +255,10 @@ def run_unsubscribe_only(service, dry_run=True):
         if selected_indices is None:
             console.print("[bold red]Aborted.[/]")
             return
+
+        # "Select all" sentinel → expand to every index
+        if -1 in selected_indices:
+            selected_indices = list(range(len(items)))
 
         if selected_indices:
             console.print()
