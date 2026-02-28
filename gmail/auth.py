@@ -39,7 +39,7 @@ def get_credentials():
                 "Copy it and open it in [bold]Chrome or Firefox[/] "
                 "[dim](Safari may block the localhost callback)[/]\n"
             )
-            creds = flow.run_local_server(port=8080, open_browser=False)
+            creds = flow.run_local_server(port=0, open_browser=False)
 
         with open(TOKEN_FILE, "w") as f:
             f.write(creds.to_json())
