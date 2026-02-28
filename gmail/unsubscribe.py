@@ -86,7 +86,12 @@ def attempt_unsubscribe(service, links):
             else:
                 address = uri
                 subject = "Unsubscribe"
-            send_message(service, to=address.strip(), subject=subject)
+            body = (
+                "Please unsubscribe me from this mailing list.\n\n"
+                "This is an automated unsubscribe request sent in compliance "
+                "with RFC 2369 (List-Unsubscribe)."
+            )
+            send_message(service, to=address.strip(), subject=subject, body=body)
             return ("mailto", "ok")
         except Exception:
             return ("mailto", "failed")

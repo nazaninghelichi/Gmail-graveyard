@@ -294,12 +294,21 @@ def run_unsubscribe_only(service, config, dry_run=True):
             selected_indices = list(range(len(items)))
 
         if selected_indices:
+            import time
             console.print()
+            if len(selected_indices) > 10:
+                console.print(
+                    f"[dim]Sending {len(selected_indices)} requests with a small delay "
+                    f"to avoid Gmail rate limits...[/]\n"
+                )
             result_rows = []
-            for i in selected_indices:
+            for idx, i in enumerate(selected_indices):
                 sender, subject, links = items[i]
                 method, status = attempt_unsubscribe(service, links)
                 result_rows.append((sender, method, status))
+                # Pace mailto sends to avoid hitting Gmail's sending rate limit
+                if method == "mailto" and idx < len(selected_indices) - 1:
+                    time.sleep(1)
 
             result_table = Table(show_header=True, header_style="bold cyan")
             result_table.add_column("Sender", style="white", max_width=50)
