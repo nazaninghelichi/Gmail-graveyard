@@ -247,18 +247,46 @@ def run_unsubscribe_only(service, config, dry_run=True):
     msgs_with_headers = _fetch_with_headers(service, all_msgs)
 
     reviewed = load_reviewed()
-    items = []       # (sender, subject, links) for those with unsubscribe links
-    to_label = []    # (msg_id, label) for all newsletter emails
+    items = []        # (sender, subject, links) — new, with parseable unsubscribe links
+    to_label = []     # (msg_id, label) — all new newsletter emails
+    already_reviewed_count = 0
+    no_link_count = 0
 
     for msg_id, headers in msgs_with_headers:
         if is_newsletter(headers):
-            if msg_id not in reviewed:
-                links = get_unsubscribe_links(headers)
-                if links:
-                    items.append((get_header(headers, "From"), get_header(headers, "Subject"), links))
-                to_label.append((msg_id, "Newsletters"))
+            if msg_id in reviewed:
+                already_reviewed_count += 1
+                continue
+            links = get_unsubscribe_links(headers)
+            if links:
+                items.append((get_header(headers, "From"), get_header(headers, "Subject"), links))
+            else:
+                no_link_count += 1
+            to_label.append((msg_id, "Newsletters"))
+
+    # Clear, specific feedback about why results might be empty
+    if not items and not to_label:
+        if already_reviewed_count:
+            console.print(
+                f"[bold yellow]All {already_reviewed_count} newsletter emails were already reviewed.[/]\n"
+                "  Use [bold]Clear review history[/] from the main menu to re-scan them."
+            )
+        else:
+            console.print("[bold green]No newsletter emails found in your inbox.[/]")
+        return
 
     print_unsubscribe_report(items)
+
+    if no_link_count:
+        console.print(
+            f"[dim]  {no_link_count} newsletter email(s) had no parseable unsubscribe link "
+            f"and are not shown above.[/]\n"
+        )
+    if already_reviewed_count:
+        console.print(
+            f"[dim]  {already_reviewed_count} previously reviewed newsletter(s) skipped. "
+            f"Use 'Clear review history' to re-scan.[/]\n"
+        )
 
     if dry_run:
         if items:
