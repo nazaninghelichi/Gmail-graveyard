@@ -191,7 +191,18 @@ def main():
             ).ask()
 
             if action_choice is None or action_choice == "Exit":
-                console.print("[dim]Goodbye.[/]")
+                exit_choice = questionary.select(
+                    "How do you want to exit?",
+                    choices=[
+                        "Soft exit  (stay signed in — token kept)",
+                        "Sign out   (delete token — browser sign-in required next time)",
+                    ],
+                ).ask()
+                if exit_choice is None or exit_choice.startswith("Soft"):
+                    console.print("[dim]Goodbye.[/]")
+                else:
+                    from gmail.auth import signout
+                    signout()
                 return
 
             mode_choice = questionary.select(
