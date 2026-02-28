@@ -1,0 +1,7 @@
+token.json
+credentials.json
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+gmail_graveyard.log

@@ -1,0 +1,24 @@
+rules:
+  delete_older_than_days: 90
+
+  priority_keywords:
+    - job offer
+    - interview
+    - hiring
+    - salary
+    - offer letter
+    - contract
+    - invoice
+    - urgent
+    - deadline
+    - action required
+
+  # Add email addresses of people you never want emails deleted from
+  priority_senders: []
+  # priority_senders:
+  #   - boss@company.com
+  #   - recruiter@company.com
+
+automation:
+  schedule: daily        # daily or weekly
+  max_trash_per_run: 100 # safety cap — never trashes more than this per run
