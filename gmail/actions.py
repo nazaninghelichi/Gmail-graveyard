@@ -310,7 +310,7 @@ def run_unsubscribe_only(service, config, dry_run=True):
         selected_indices = questionary.checkbox(
             f"Unsubscribe from ({len(items)} selected — uncheck any to skip):",
             choices=choices,
-            default=list(range(len(items))),
+            default=choices,
         ).ask()
 
         if selected_indices is None:
@@ -581,7 +581,7 @@ def run_browse_and_delete(service, config):
             else f"Emails to DELETE ({len(email_items)} shown — uncheck any to keep):"
         ),
         choices=choices,
-        default=list(range(len(email_items))),
+        default=choices,
     ).ask()
 
     if selected_indices is None:
@@ -705,7 +705,7 @@ def run_job_emails(service, config):
         selected = questionary.checkbox(
             "Select emails to act on (uncheck any to skip):",
             choices=choices,
-            default=list(range(len(job_items))),
+            default=choices,
         ).ask()
         if not selected:
             return
