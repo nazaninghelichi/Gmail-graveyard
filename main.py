@@ -176,44 +176,49 @@ def main():
         and not args.days
     )
     if no_explicit_flags:
-        action_choice = questionary.select(
-            "What would you like to do?",
-            choices=[
-                "Full cleanup  (scan + auto-actions + choose per category)",
-                "Delete old emails only",
-                "Find newsletters & unsubscribe links",
-                "Organize by category  (apply labels)",
-                "Find duplicates",
-                "Exit",
-            ],
-        ).ask()
+        while True:
+            console.print()
+            action_choice = questionary.select(
+                "What would you like to do?",
+                choices=[
+                    "Full cleanup  (scan + auto-actions + choose per category)",
+                    "Delete old emails only",
+                    "Find newsletters & unsubscribe links",
+                    "Organize by category  (apply labels)",
+                    "Find duplicates",
+                    "Exit",
+                ],
+            ).ask()
 
-        if action_choice is None or action_choice == "Exit":
-            return
+            if action_choice is None or action_choice == "Exit":
+                console.print("[dim]Goodbye.[/]")
+                return
 
-        mode_choice = questionary.select(
-            "Run mode:",
-            choices=[
-                "Dry run  (preview only — no changes made)",
-                "Live run  (apply changes)",
-            ],
-        ).ask()
+            mode_choice = questionary.select(
+                "Run mode:",
+                choices=[
+                    "Dry run  (preview only — no changes made)",
+                    "Live run  (apply changes)",
+                ],
+            ).ask()
 
-        if mode_choice is None:
-            return
+            if mode_choice is None:
+                return
 
-        dry_run = mode_choice.startswith("Dry")
+            dry_run = mode_choice.startswith("Dry")
 
-        if "Full cleanup" in action_choice:
-            run_cleanup(service, config, dry_run=dry_run)
-        elif "Delete old" in action_choice:
-            run_delete_old_only(service, config, dry_run=dry_run)
-        elif "newsletters" in action_choice:
-            run_unsubscribe_only(service, dry_run=dry_run)
-        elif "Organize" in action_choice:
-            run_organize_only(service, config, dry_run=dry_run)
-        elif "duplicates" in action_choice:
-            run_duplicates_only(service, config, dry_run=dry_run)
+            if "Full cleanup" in action_choice:
+                run_cleanup(service, config, dry_run=dry_run)
+            elif "Delete old" in action_choice:
+                run_delete_old_only(service, config, dry_run=dry_run)
+            elif "newsletters" in action_choice:
+                run_unsubscribe_only(service, dry_run=dry_run)
+            elif "Organize" in action_choice:
+                run_organize_only(service, config, dry_run=dry_run)
+            elif "duplicates" in action_choice:
+                run_duplicates_only(service, config, dry_run=dry_run)
+
+            # Loop back to the menu after each action completes
         return
 
     # Explicit flags path (--action / --dry-run passed directly)
