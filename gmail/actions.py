@@ -4,7 +4,7 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TaskProgressColumn
 from rich.table import Table
 
-from gmail.analyzer import get_header, get_age_days, is_job_email, is_newsletter, is_priority, categorize
+from gmail.analyzer import get_header, get_age_days, is_job_email, is_newsletter, is_personal_email, is_priority, categorize
 from gmail.client import list_messages, get_message_metadata, trash_message, modify_labels, get_or_create_label
 from gmail.duplicates import find_duplicates
 from gmail.state import load_reviewed, mark_reviewed
@@ -68,6 +68,11 @@ def _scan(service, config):
 
     for msg_id, headers in msgs_with_headers:
         if is_priority(headers, priority_keywords, priority_senders):
+            to_priority.append(msg_id)
+            continue
+
+        # Protect emails sent directly by a real person — never auto-delete
+        if is_personal_email(headers):
             to_priority.append(msg_id)
             continue
 

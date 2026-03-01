@@ -83,6 +83,37 @@ def is_newsletter(headers):
     return bool(get_header(headers, "List-Unsubscribe"))
 
 
+_AUTOMATED_SENDER_PATTERNS = [
+    "no-reply", "noreply", "do-not-reply", "donotreply",
+    "notifications@", "notify@", "automated@", "mailer@",
+    "bounce@", "postmaster@", "alert@", "alerts@",
+    "news@", "newsletter@", "marketing@", "promo@",
+    "support@", "hello@", "info@", "team@", "accounts@",
+    "update@", "updates@", "service@", "system@",
+]
+
+
+def is_personal_email(headers) -> bool:
+    """Return True if the email looks like it was sent directly by a real person."""
+    # Any bulk/list header means it's not personal
+    if get_header(headers, "List-Unsubscribe"):
+        return False
+    if get_header(headers, "List-Id"):
+        return False
+
+    # Precedence: bulk / list / junk → automated
+    precedence = get_header(headers, "Precedence").lower()
+    if precedence in ("bulk", "list", "junk"):
+        return False
+
+    # Sender looks automated
+    sender = get_header(headers, "From").lower()
+    if any(p in sender for p in _AUTOMATED_SENDER_PATTERNS):
+        return False
+
+    return True
+
+
 def is_priority(headers, extra_keywords=None, priority_senders=None):
     keywords = DEFAULT_PRIORITY_KEYWORDS + (extra_keywords or [])
     senders = [s.lower() for s in (priority_senders or []) if s]

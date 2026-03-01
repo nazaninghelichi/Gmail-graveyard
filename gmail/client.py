@@ -25,8 +25,9 @@ def get_message_metadata(service, msg_id):
         id=msg_id,
         format="metadata",
         metadataHeaders=[
-            "Subject", "From", "Date",
-            "List-Unsubscribe", "List-Unsubscribe-Post", "Message-ID",
+            "Subject", "From", "To", "Date",
+            "List-Unsubscribe", "List-Unsubscribe-Post", "List-Id",
+            "Precedence", "Message-ID",
         ],
     ).execute()
 
