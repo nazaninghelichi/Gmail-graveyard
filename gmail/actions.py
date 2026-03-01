@@ -550,14 +550,12 @@ def run_browse_and_delete(service, config):
         email_items.append((msg_id, display_sender, subject, age_str, priority))
 
     priority_count = sum(1 for *_, p in email_items if p)
-    console.print(f"  [bold yellow]{len(email_items)}[/] emails loaded.")
     if priority_count:
-        console.print(f"  [dim]★ = priority email ({priority_count} found) — these will be skipped even if selected[/]")
-    console.print()
-    console.print("  [dim]Space = check/uncheck   a = select all   Enter = confirm deletion[/]")
-    console.print("  [dim]Tip: press [bold]a[/] to select all, then uncheck the ones you want to keep.[/]\n")
+        console.print(f"  [dim]★ = priority email — will be skipped even if selected[/]\n")
 
     choices = [
+        questionary.Choice(title="── Select all ──", value=-1, checked=True),
+    ] + [
         questionary.Choice(
             title=(
                 f"★ {age_str}  {display_sender[:28]:<28}  {subject[:48]}"
@@ -565,17 +563,21 @@ def run_browse_and_delete(service, config):
                 else f"  {age_str}  {display_sender[:28]:<28}  {subject[:48]}"
             ),
             value=i,
+            checked=True,
         )
         for i, (msg_id, display_sender, subject, age_str, priority) in enumerate(email_items)
     ]
 
     selected_indices = questionary.checkbox(
-        f"Select emails to DELETE ({len(email_items)} shown):",
+        f"Select emails to DELETE — uncheck any to keep ({len(email_items)} emails):",
         choices=choices,
     ).ask()
 
     if selected_indices is None:
         return
+
+    # Remove the "Select all" sentinel, keep only real email indices
+    selected_indices = [i for i in selected_indices if i != -1]
 
     if not selected_indices:
         console.print("[dim]Nothing selected — no emails deleted.[/]")
