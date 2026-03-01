@@ -550,22 +550,12 @@ def run_browse_and_delete(service, config):
         email_items.append((msg_id, display_sender, subject, age_str, priority))
 
     priority_count = sum(1 for *_, p in email_items if p)
+    console.print(f"  [bold yellow]{len(email_items)}[/] emails loaded.")
     if priority_count:
-        console.print(f"[dim]  ★ = priority email — be careful deleting these[/]")
-    console.print("[dim]  All selected by default — Space = deselect   ↑↓ = navigate   Enter = confirm[/]")
+        console.print(f"  [dim]★ = priority email ({priority_count} found) — these will be skipped even if selected[/]")
     console.print()
-
-    mode = questionary.select(
-        "Selection mode:",
-        choices=[
-            "Select emails to DELETE",
-            "Select emails to KEEP  (everything else gets deleted)",
-        ],
-    ).ask()
-    if mode is None:
-        return
-
-    keep_mode = "KEEP" in mode
+    console.print("  [dim]Space = check/uncheck   a = select all   Enter = confirm deletion[/]")
+    console.print("  [dim]Tip: press [bold]a[/] to select all, then uncheck the ones you want to keep.[/]\n")
 
     choices = [
         questionary.Choice(
@@ -575,40 +565,27 @@ def run_browse_and_delete(service, config):
                 else f"  {age_str}  {display_sender[:28]:<28}  {subject[:48]}"
             ),
             value=i,
-            checked=True,
         )
         for i, (msg_id, display_sender, subject, age_str, priority) in enumerate(email_items)
     ]
 
     selected_indices = questionary.checkbox(
-        (
-            f"Emails to KEEP ({len(email_items)} shown — uncheck any to delete):"
-            if keep_mode
-            else f"Emails to DELETE ({len(email_items)} shown — uncheck any to keep):"
-        ),
+        f"Select emails to DELETE ({len(email_items)} shown):",
         choices=choices,
     ).ask()
 
     if selected_indices is None:
         return
 
-    if keep_mode:
-        kept = set(selected_indices)
-        selected_indices = [i for i in range(len(email_items)) if i not in kept]
-        if not selected_indices:
-            console.print("[dim]Nothing to delete — all emails kept.[/]")
-            return
-
     if not selected_indices:
-        console.print("[dim]Nothing selected.[/]")
+        console.print("[dim]Nothing selected — no emails deleted.[/]")
         return
 
     to_delete = [email_items[i][0] for i in selected_indices if not email_items[i][4]]
     priority_selected = [email_items[i] for i in selected_indices if email_items[i][4]]
     if priority_selected:
         console.print(
-            f"[bold yellow]Warning:[/] {len(priority_selected)} priority email(s) "
-            f"{'kept safe' if keep_mode else 'skipped'}.\n"
+            f"[bold yellow]Skipping {len(priority_selected)} priority email(s) — these are protected.[/]\n"
         )
         if not to_delete:
             return
