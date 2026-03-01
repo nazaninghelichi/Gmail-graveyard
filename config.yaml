@@ -16,6 +16,20 @@ rules:
   # Add email addresses or domains you never want emails deleted from
   priority_senders:
     - yorku.ca
+    # Canadian banks
+    - td.com
+    - tdbank.com
+    - rbc.com
+    - royalbank.com
+    - bmo.com
+    - scotiabank.com
+    - cibc.com
+    - eqbank.ca
+    - tangerine.ca
+    - pcfinancial.ca
+    - nbdb.ca
+    - desjardins.com
+    - simplii.com
 
 
 automation:
