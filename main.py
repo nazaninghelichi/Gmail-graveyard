@@ -184,7 +184,7 @@ def main():
                 "What would you like to do?",
                 choices=[
                     "Full cleanup  (scan + auto-actions + choose per category)",
-                    "Browse & delete  (pick from last 100 emails)",
+                    "Browse & delete  (pick from last 500 emails)",
                     "Job emails  (find & act on job-related emails)",
                     "Delete old emails only",
                     "Find newsletters & unsubscribe links",

@@ -519,14 +519,14 @@ def run_delete_old_only(service, config, dry_run=True):
 
 
 def run_browse_and_delete(service, config):
-    """List the last 100 inbox emails and let the user select which to delete."""
+    """List the last 500 inbox emails and let the user select which to delete."""
     max_trash = config.get("automation", {}).get("max_trash_per_run", 500)
     rules = config.get("rules", {})
     priority_keywords = rules.get("priority_keywords", [])
     priority_senders = rules.get("priority_senders", [])
 
-    console.print("\n[bold cyan]Loading last 100 emails...[/]\n")
-    all_msgs = list_messages(service, query="in:inbox", max_results=100)
+    console.print("\n[bold cyan]Loading last 500 emails...[/]\n")
+    all_msgs = list_messages(service, query="in:inbox", max_results=500)
     msgs_with_headers = _fetch_with_headers(service, all_msgs)
 
     if not msgs_with_headers:
