@@ -498,6 +498,7 @@ def run_delete_old_only(service, config, dry_run=True):
     to_trash = [
         msg_id for msg_id, headers in msgs_with_headers
         if not is_priority(headers, priority_keywords, priority_senders)
+        and not is_personal_email(headers)
     ]
     protected = len(msgs_with_headers) - len(to_trash)
 
@@ -546,7 +547,7 @@ def run_browse_and_delete(service, config):
         else:
             age_str = f"{age}d ago   "[:9]
         display_sender = sender.split("<")[0].strip() or sender
-        priority = is_priority(headers, priority_keywords, priority_senders)
+        priority = is_priority(headers, priority_keywords, priority_senders) or is_personal_email(headers)
         email_items.append((msg_id, display_sender, subject, age_str, priority))
 
     priority_count = sum(1 for *_, p in email_items if p)
